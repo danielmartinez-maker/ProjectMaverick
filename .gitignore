@@ -1,0 +1,32 @@
+# Original commercial game / upstream distribution
+upstream/
+original-game/
+*.exe
+*.dll
+*.msi
+*.pak
+*.bin
+*.dat
+*.ogg
+
+# Local patch/build output
+dist/
+build/
+patched-game/
+*.zip
+*.7z
+
+# Dependencies / tooling
+node_modules/
+.npm/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Saves and local state
+saves/
+*.sav
+*.log
