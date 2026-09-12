@@ -40,3 +40,11 @@ The local state/city collections represent the player's currently loaded local p
 ## Fail-closed boundary
 
 These indexes are internal implementation details, so they must never be assumed across unknown game versions. Installation remains guarded by the exact v0.353 `index.html` hash, and future game versions require an explicit compatibility update plus adapter tests before installation is allowed.
+
+## Electorate aggregate surface
+
+The v0.353 string tables also expose the aggregate electorate structures used by elections and voter-opinion updates. Project Maverick reads these as snapshots when available: `nationStats`, current `stateStats`/state-specific `xxStats` objects, `usHouseElectStats`, `stateHouseElectStats`, `stateSenateElectStats`, `cityCouncilStats`, and `schoolBoardStats`.
+
+The supported evidence surface includes `demPop`, `repPop`, and `indPop` for party demographics; party-prefixed policy-opinion fields such as `demMinWage`, `repGunControl`, and `indExpandMedicaid`; and party-prefixed priority fields such as `demHealthPri`, `repGunPri`, and `indImmPri`. Maverick converts these aggregate values into bounded issue-axis evidence and salience weights. It does not create or persist synthetic individual voters.
+
+Electorate data is treated as optional. A stats object without usable native party-demographic evidence is skipped rather than populated with fabricated values. The cohort model's confidence falls when issue/opinion/priority evidence is sparse.
