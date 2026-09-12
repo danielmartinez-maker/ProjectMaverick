@@ -1,0 +1,1 @@
+function createRecentViews(storage){return{list:()=>storage.load().recentViews||[],record(id){id=String(id);return storage.update(s=>{const list=(s.recentViews||[]).filter(x=>x!==id);s.recentViews=[...list,id].slice(-50);return s;});}};}module.exports={createRecentViews};
