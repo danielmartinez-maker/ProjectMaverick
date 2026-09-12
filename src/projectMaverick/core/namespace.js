@@ -1,0 +1,1 @@
+(function(root){ const existing=root.ProjectMaverick||{}; if(!existing.version) existing.version='0.1.0-dev'; root.ProjectMaverick=existing; if(typeof module!=='undefined') module.exports=existing; })(typeof window!=='undefined'?window:globalThis);
