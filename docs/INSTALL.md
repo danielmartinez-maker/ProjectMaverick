@@ -1,0 +1,3 @@
+# Install / uninstall
+
+Project Maverick targets a verified The Political Process v0.353 installation. Build with `node tools/build.js`, verify the unmodified game directory with `node tools/verify-v0353.js <gameDir>`, then use `patchGame` from `tools/patch-v0353.js` with the expected v0.353 index SHA-256. The patcher creates `.project-maverick-backup/index.html` before inserting the loader and copies only Project Maverick build output. To uninstall, call `restoreGame({gameDir})`; it restores the exact backed-up `index.html` and removes the `projectMaverick/` runtime directory. Never point patch tooling at the pristine ZIP backup.
