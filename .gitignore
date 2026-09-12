@@ -13,6 +13,7 @@ original-game/
 dist/
 build/
 patched-game/
+.worktrees/
 *.zip
 *.7z
 
