@@ -1,0 +1,1 @@
+function createEvents(){const listeners=new Map();function on(name,fn){if(!listeners.has(name))listeners.set(name,new Set());listeners.get(name).add(fn);return()=>listeners.get(name)?.delete(fn);}function emit(name,payload){for(const fn of listeners.get(name)||[])fn(payload);}return{on,emit};}module.exports={createEvents};
