@@ -1,0 +1,1 @@
+const {DIMENSIONS}=require('../ideology/dimensions');function comparePoliticianRecords(a,b){const deltas={};for(const d of DIMENSIONS)deltas[d]=(Number(a?.ideology?.dimensions?.[d])||0)-(Number(b?.ideology?.dimensions?.[d])||0);return{a,b,dimensionDeltas:deltas};}module.exports={comparePoliticianRecords};
