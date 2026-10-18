@@ -46,6 +46,7 @@
     const {renderIdeologyExplorer}=loadModule('ui/ideologyExplorer');
     const {renderElectoratePanel,renderElectorateBrowser}=loadModule('ui/electoratePanel');
     const {renderComparePanel}=loadModule('ui/comparePanel');
+    const {renderChangelog}=loadModule('ui/changelog');
     const {renderDiagnosticsPanel}=loadModule('ui/diagnosticsPanel');
 
     const fs=require('node:fs'),crypto=require('node:crypto'),path=require('node:path');
@@ -104,7 +105,7 @@
       for(const id of classificationCache.keys())if(!currentIds.has(id))classificationCache.delete(id);
       return built;
     }
-    let records=buildRecords(),electorates=adapter.readElectorates();
+    let records=[],electorates=[];
     function refreshData(){try{records=buildRecords();electorates=adapter.readElectorates();ns.records=records;ns.electorates=electorates;}catch(error){diagnostics.record('data-refresh-failed',{message:error&&error.message?error.message:String(error),stack:error&&error.stack?error.stack:null});throw error;}}
     const style=document.createElement('link');
     style.rel='stylesheet';style.href='projectMaverick/styles/projectMaverick.css';style.id='pm-styles';
@@ -151,14 +152,18 @@
         storageStatus,safeMode,setSafeMode
       }));
     }
+    function openChangelog(){shell.open(target=>renderChangelog(document,target,{back:openDashboard}));}
     function openDashboard(){
       refreshData();
-      shell.open(target=>renderDashboard(document,target,{records,searchPoliticians,filterPoliticians,sortPoliticians,watchlists,recentViews,openPolitician,openIdeologyExplorer,openElectorates,openCompare,openDiagnostics,toggleWatchlist,toggleCompare,compareIds}));
+      shell.open(target=>renderDashboard(document,target,{records,searchPoliticians,filterPoliticians,sortPoliticians,watchlists,recentViews,openPolitician,openIdeologyExplorer,openElectorates,openCompare,openDiagnostics,openChangelog,toggleWatchlist,toggleCompare,compareIds}));
     }
     if(!document.getElementById('pm-launcher')){
       const launcher=document.createElement('button');launcher.id='pm-launcher';launcher.className='pm-button';launcher.type='button';launcher.textContent='Maverick';launcher.addEventListener('click',openDashboard);document.body.appendChild(launcher);
     }
-    Object.assign(ns,{storage,events,adapter,records,electorates,watchlists,recentViews,shell,openDashboard,openPolitician,openIdeologyExplorer,openElectorates,openCompare,openDiagnostics,toggleWatchlist,toggleCompare,compareIds,inferCohorts:cohortModel,analyzeCandidate,isSafeMode,setSafeMode});
+    if(!document.getElementById('pm-changelog-launcher')){
+      const launcher=document.createElement('button');launcher.id='pm-changelog-launcher';launcher.className='pm-button';launcher.type='button';launcher.textContent='Changelog';launcher.addEventListener('click',openChangelog);document.body.appendChild(launcher);
+    }
+    Object.assign(ns,{storage,events,adapter,records,electorates,watchlists,recentViews,shell,openDashboard,openPolitician,openIdeologyExplorer,openElectorates,openCompare,openDiagnostics,openChangelog,toggleWatchlist,toggleCompare,compareIds,inferCohorts:cohortModel,analyzeCandidate,isSafeMode,setSafeMode});
     ns.__booting=false;ns.__booted=true;
     events.emit('ready',{recordCount:records.length,electorateCount:electorates.length});
   }catch(error){
