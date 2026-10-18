@@ -28,7 +28,7 @@
     const backup=path.join(process.cwd(),'.project-maverick-backup','index.html');
     const indexSha256=fs.existsSync(backup)?crypto.createHash('sha256').update(fs.readFileSync(backup)).digest('hex'):null;
     const status=compatibility.check({indexSha256});ns.compatibilityStatus=status;if(!status.ok){diagnostics.record('compatibility-failed',status.failures);return;}
-    const storage=createStorage(root.localStorage,(code,detail)=>diagnostics.record(code,detail));const events=createEvents();const adapter=createAdapter(root);
+    const storage=createStorage(root.localStorage,(code,detail)=>diagnostics.record(code,detail));const events=createEvents();const adapter=createAdapter(root,(code,detail)=>diagnostics.record(code,detail));
     function buildRecords(){const issueCatalog=adapter.readIssueCatalog();return adapter.readPoliticians().map(p=>{const scored=scorePolitician(p,issueCatalog);const classified=classifyPolitician(scored);const politicalStyle=classifyPoliticalStyle(p);return{...p,politicalStyle,ideology:{...classified,dimensions:scored.dimensions,evidence:scored.evidence}};});}
     let records=buildRecords(),electorates=adapter.readElectorates();
     function refreshData(){records=buildRecords();electorates=adapter.readElectorates();ns.records=records;ns.electorates=electorates;}

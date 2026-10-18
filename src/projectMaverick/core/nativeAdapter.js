@@ -29,8 +29,27 @@ const POLITICIAN_COLLECTIONS = Object.freeze([
 const POLITICIAN_SINGLETONS = Object.freeze(['usPresident','vicePresident','governor','mayor']);
 
 function cloneValue(value) {
-  if (value == null) return value;
-  try { return JSON.parse(JSON.stringify(value)); } catch (_) { return value; }
+  const seen = new WeakMap();
+  function clone(item) {
+    if (item == null || typeof item !== 'object') return typeof item === 'function' ? null : item;
+    if (seen.has(item)) return seen.get(item);
+    if (Array.isArray(item)) {
+      const copy = [];
+      seen.set(item, copy);
+      for (let i = 0; i < item.length; i++) copy[i] = clone(item[i]);
+      return copy;
+    }
+    const prototype = Object.getPrototypeOf(item);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const copy = {};
+    seen.set(item, copy);
+    for (const key of Object.keys(item)) {
+      const descriptor = Object.getOwnPropertyDescriptor(item, key);
+      if (descriptor && Object.prototype.hasOwnProperty.call(descriptor, 'value')) copy[key] = clone(descriptor.value);
+    }
+    return copy;
+  }
+  try { return clone(value); } catch (_) { return null; }
 }
 function text(v) { return v == null ? '' : String(v).trim(); }
 function first(obj, names) { for (const n of names) if (obj && obj[n] != null) return obj[n]; return null; }
@@ -101,11 +120,11 @@ function normalizeObjectPolitician(p, index) {
     id, name, firstName, lastName, state, office,
     party: text(first(p, ['party','partyName','politicalParty','caucusParty'])),
     traits: Array.isArray(p.traits) ? cloneValue(p.traits) : [],
-    fiscalScore: first(p, ['fiscalScore','fiscalIdeology','econIdeology']),
-    socialScore: first(p, ['socialScore','socialIdeology']),
-    popularity: first(p, ['popularity','totalAppr','approvalRating']) ?? approval.overall ?? null,
+    fiscalScore: cloneValue(first(p, ['fiscalScore','fiscalIdeology','econIdeology'])),
+    socialScore: cloneValue(first(p, ['socialScore','socialIdeology'])),
+    popularity: cloneValue(first(p, ['popularity','totalAppr','approvalRating'])) ?? approval.overall ?? null,
     approval,
-    experience: first(p, ['experience','politicalExperience','yearsExperience','politicalPoints']),
+    experience: cloneValue(first(p, ['experience','politicalExperience','yearsExperience','politicalPoints'])),
     issues: cloneValue(first(p, ['issues','issuePositions','positions','policyPositions'])) || {},
     native: cloneValue({ history: first(p, ['history','politicalHistory','jobHistory']), partyLoyalty: first(p, ['partyLoyalty']), jobs })
   };
@@ -138,8 +157,9 @@ function weightedPartyMetric(stats,partyDistribution,suffix,normalizer){let tota
 function axisSupport(stats,partyDistribution,specs){let total=0,count=0;for(const [suffix,direction] of specs){const n=weightedPartyMetric(stats,partyDistribution,suffix,normalizeSupport);if(n==null)continue;total+=n*direction;count++;}return count?Math.max(-1,Math.min(1,total/count)):null;}
 function axisPriority(stats,partyDistribution,suffixes){let total=0,count=0;for(const suffix of suffixes){const n=weightedPartyMetric(stats,partyDistribution,suffix,normalizePriority);if(n==null)continue;total+=n;count++;}return count?total/count:null;}
 function normalizeElectorate(stats,id,label,scope){if(!stats||typeof stats!=='object'||Array.isArray(stats))return null;const partyDistribution=electorateParties(stats);if(!partyDistribution)return null;const issueSupport={},issueSalience={};for(const [axis,specs] of Object.entries(SUPPORT_AXES)){const v=axisSupport(stats,partyDistribution,specs);if(v!=null)issueSupport[axis]=v;}for(const [axis,suffixes] of Object.entries(PRIORITY_AXES)){const v=axisPriority(stats,partyDistribution,suffixes);if(v!=null)issueSalience[axis]=v;}return{id,label,scope,partyDistribution,issueSupport,issueSalience,nativeEvidence:{partyFields:['demPop','repPop','indPop'],supportAxes:Object.keys(issueSupport),priorityAxes:Object.keys(issueSalience)}};}
-function createAdapter(root) {
+function createAdapter(root, report) {
   root = root || {};
+  report = typeof report === 'function' ? report : () => {};
   function readPoliticians() {
     const raw=[];
     const generic=findArray(root,['politicians','allPoliticians','activePoliticians','candidateDatabase','candidates']);
@@ -170,6 +190,22 @@ function createAdapter(root) {
   }
   function readDistrictContext(subject) { const d = first(subject || {}, ['district','districtData','electorate']); return d && typeof d === 'object' ? cloneValue(d) : null; }
   function readElectionContext(subject) { const e = first(subject || {}, ['election','electionData','race']); return e && typeof e === 'object' ? cloneValue(e) : null; }
-  return { readPoliticians, readPlayer, readIssueCatalog, readElectorates, readDistrictContext, readElectionContext };
+  function guarded(name, fallback, reader) {
+    return function() {
+      try { return reader.apply(null, arguments); }
+      catch (error) {
+        try { report('native-read-failed', { accessor: name, message: error && error.message ? error.message : String(error) }); } catch (_) {}
+        return fallback;
+      }
+    };
+  }
+  return {
+    readPoliticians: guarded('politicians', [], readPoliticians),
+    readPlayer: guarded('player', null, readPlayer),
+    readIssueCatalog: guarded('issue-catalog', [], readIssueCatalog),
+    readElectorates: guarded('electorates', [], readElectorates),
+    readDistrictContext: guarded('district-context', null, readDistrictContext),
+    readElectionContext: guarded('election-context', null, readElectionContext)
+  };
 }
 module.exports = { createAdapter, normalizePolitician, normalizeCandidateArray, normalizeElectorate, CANDIDATE_LENGTH, CANDIDATE_INDEX, POLICY_INDEX };

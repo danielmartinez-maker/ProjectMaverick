@@ -6,10 +6,31 @@ function inferCohorts(district={}) {
   const party=normalizeParty(district.partyDistribution);
   const ideological=scorePolitician({fiscalScore:district.fiscalScore,socialScore:district.socialScore,issues:district.issueSupport||{}});
   const salienceWeights=salienceDimensionWeights(district.issueSalience||{});
-  const raw=COHORT_TEMPLATES.map(t=>{const sim=Math.exp(-2.2*distance(ideological.dimensions,t.profile,salienceWeights));const prior=.08+party.democrat*t.partisanAffinity.democrat+party.republican*t.partisanAffinity.republican+party.independent*t.partisanAffinity.independent;return{template:t,weight:sim*prior};});
-  const total=raw.reduce((s,x)=>s+x.weight,0)||1;let running=0;
-  const cohorts=raw.map((x,idx)=>{const share=idx===raw.length-1?Math.max(0,1-running):x.weight/total;running+=share;return{id:x.template.id,name:x.template.name,share,profile:x.template.profile,salience:x.template.salienceWeights,partisanAffinity:x.template.partisanAffinity,stylePreferences:x.template.stylePreferences};});
-  const partyEvidence=district.partyDistribution?1:0,issueEvidence=Object.keys(district.issueSupport||{}).length,salienceEvidence=Object.keys(district.issueSalience||{}).length;
+  const observedDimensions=new Set(ideological.evidence.map(item=>item.dimension));
+  const comparisonWeights={};
+  for(const dimension of Object.keys(ideological.dimensions)) comparisonWeights[dimension]=observedDimensions.has(dimension)?(salienceWeights[dimension]||1):0;
+  const raw=COHORT_TEMPLATES.map(template=>({template,similarity:Math.exp(-2.2*distance(ideological.dimensions,template.profile,comparisonWeights))}));
+  const partyKeys=['democrat','republican','independent'];
+  const partyContributions=raw.map(()=>({democrat:0,republican:0,independent:0}));
+  for(const partyKey of partyKeys){
+    let weights=raw.map(item=>item.similarity*Math.max(0,Number(item.template.partisanAffinity[partyKey])||0));
+    let total=weights.reduce((sum,value)=>sum+value,0);
+    if(!total){weights=raw.map(item=>item.similarity);total=weights.reduce((sum,value)=>sum+value,0)||1;}
+    for(let i=0;i<raw.length;i++) partyContributions[i][partyKey]=party[partyKey]*weights[i]/total;
+  }
+  let running=0;
+  const cohorts=raw.map((item,index)=>{
+    const contribution=partyContributions[index];
+    const derivedShare=partyKeys.reduce((sum,key)=>sum+contribution[key],0);
+    const share=index===raw.length-1?Math.max(0,1-running):derivedShare;
+    running+=share;
+    const partisanAffinity=derivedShare?Object.fromEntries(partyKeys.map(key=>[key,contribution[key]/derivedShare])):item.template.partisanAffinity;
+    return{id:item.template.id,name:item.template.name,share,profile:item.template.profile,salience:item.template.salienceWeights,partisanAffinity,stylePreferences:item.template.stylePreferences};
+  });
+  const suppliedParty= district.partyDistribution||{};
+  const partyEvidence=['democrat','republican','independent'].some(key=>Number(suppliedParty[key])>0)?1:0;
+  const issueEvidence=ideological.evidence.filter(item=>item.source.indexOf('issue:')===0||item.source.indexOf('policy:')===0).length;
+  const salienceEvidence=Object.values(district.issueSalience||{}).filter(value=>Number.isFinite(Number(value))&&Number(value)>=0).length;
   const confidence=Math.min(1,.2+.3*partyEvidence+.25*Math.min(1,issueEvidence/5)+.1*Math.min(1,salienceEvidence/5)+.15*(district.fiscalScore!=null&&district.socialScore!=null?1:0));
   return{cohorts,confidence,constraints:{partyDistribution:party,ideology:ideological.dimensions,issueSalience:{...(district.issueSalience||{})}}};
 }
