@@ -1,0 +1,1 @@
+const ns=require('./namespace'); const records=[]; function record(code,detail){records.push({code:String(code),detail:detail==null?null:detail,at:new Date().toISOString()});if(records.length>200)records.splice(0,records.length-200);} function list(){return records.slice();} ns.diagnostics={record,list};module.exports=ns.diagnostics;
