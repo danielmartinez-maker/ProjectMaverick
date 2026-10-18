@@ -93,7 +93,7 @@
       const electorateAnalysis=model&&model.confidence>.2?analyzeCandidate(politicianProfile(record),record.politicalStyle,model):null;
       shell.open(target=>renderPoliticianPanel(document,target,record,{back:openDashboard,toggleWatchlist,isWatched:id=>watchlists.has(id),toggleCompare,isCompareSelected:id=>compareSelection.includes(String(id)),electorateAnalysis,electorateCohorts:model?.cohorts,electorateLabel:district?.label||district?.name||'Native constituency'}));
     }
-    function openIdeologyExplorer(){refreshData();shell.open(target=>renderIdeologyExplorer(document,target,records,{}, {back:openDashboard,openPolitician,toggleWatchlist}));}
+    function openIdeologyExplorer(){refreshData();shell.open(target=>renderIdeologyExplorer(document,target,records,{}, {back:openDashboard,openPolitician,toggleWatchlist,electorates,inferCohorts,analyzeCandidate,renderElectoratePanel}));}
     function openElectorates(){refreshData();shell.open(target=>renderElectorateBrowser(document,target,electorates,{back:openDashboard,records,inferCohorts,analyzeCandidate,compareCandidates,renderElectoratePanel}));}
     function openCompare(){
       refreshData();
