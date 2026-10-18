@@ -10,7 +10,8 @@ function renderDashboard(doc,target,ctx){
     button(doc,'Electorates',ctx.openElectorates),
     button(doc,'Watchlist',()=>setMode('watchlist')),
     button(doc,'Recent',()=>setMode('recent')),
-    button(doc,'Compare',ctx.openCompare)
+    button(doc,'Compare',ctx.openCompare),
+    button(doc,'Diagnostics',ctx.openDiagnostics)
   );
   const filters=el(doc,'div','pm-filters');
   const input=el(doc,'input','pm-search');input.id='pm-search';input.type='search';input.placeholder='Search politician, office, state, party, ideology, archetype';

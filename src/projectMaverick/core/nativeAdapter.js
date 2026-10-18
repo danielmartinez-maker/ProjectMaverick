@@ -160,6 +160,7 @@ function normalizeElectorate(stats,id,label,scope){if(!stats||typeof stats!=='ob
 function createAdapter(root, report) {
   root = root || {};
   report = typeof report === 'function' ? report : () => {};
+  const previousAvailability={};
   function readPoliticians() {
     const raw=[];
     const generic=findArray(root,['politicians','allPoliticians','activePoliticians','candidateDatabase','candidates']);
@@ -188,6 +189,31 @@ function createAdapter(root, report) {
     for(const [key,id,label,scope] of locals){const value=root[key];if(Array.isArray(value))value.forEach((stats,index)=>add(stats,`${id}-${index+1}`,`${label} ${index+1}`,scope));else add(value,id,label,scope);}
     return rows;
   }
+  function accessorStatus() {
+    const politicianNames=['politicians','allPoliticians','activePoliticians','candidateDatabase','candidates',...POLITICIAN_COLLECTIONS,...POLITICIAN_SINGLETONS];
+    const playerNames=['player','playerPolitician','userPolitician'];
+    const issueNames=['issueCatalog','issues','issueList','policies'];
+    const electorateNames=['nationStats','stateStats','cityStats','usHouseElectStats','stateSenateElectStats','stateHouseElectStats','cityCouncilStats','schoolBoardStats',...STATE_ABBRS.map(abbr=>abbr+'Stats')];
+    const present=(names,predicate)=>names.filter(name=>predicate(root[name]));
+    const hasObjectOrArray=value=>!!value&&typeof value==='object';
+    const politicianSources=present(politicianNames,Array.isArray);
+    const playerSources=present(playerNames,hasObjectOrArray);
+    const issueSources=present(issueNames,Array.isArray);
+    const electorateSources=present(electorateNames,hasObjectOrArray);
+    const status=[
+      {name:'politicians',available:politicianSources.length>0,sources:politicianSources},
+      {name:'player',available:playerSources.length>0,sources:playerSources},
+      {name:'issueCatalog',available:issueSources.length>0,sources:issueSources},
+      {name:'electorates',available:readElectorates().length>0,sources:electorateSources},
+      {name:'districtContext',available:null,sources:[],detail:'Read on demand from a politician or district snapshot.'},
+      {name:'electionContext',available:null,sources:[],detail:'Read on demand from an election snapshot.'}
+    ];
+    for(const item of status){
+      if(item.available===false&&previousAvailability[item.name]!==false)report('native-accessor-missing',{accessor:item.name});
+      if(item.available!=null)previousAvailability[item.name]=item.available;
+    }
+    return status;
+  }
   function readDistrictContext(subject) { const d = first(subject || {}, ['district','districtData','electorate']); return d && typeof d === 'object' ? cloneValue(d) : null; }
   function readElectionContext(subject) { const e = first(subject || {}, ['election','electionData','race']); return e && typeof e === 'object' ? cloneValue(e) : null; }
   function guarded(name, fallback, reader) {
@@ -204,6 +230,7 @@ function createAdapter(root, report) {
     readPlayer: guarded('player', null, readPlayer),
     readIssueCatalog: guarded('issue-catalog', [], readIssueCatalog),
     readElectorates: guarded('electorates', [], readElectorates),
+    accessorStatus: guarded('accessor-status', [], accessorStatus),
     readDistrictContext: guarded('district-context', null, readDistrictContext),
     readElectionContext: guarded('election-context', null, readElectionContext)
   };
