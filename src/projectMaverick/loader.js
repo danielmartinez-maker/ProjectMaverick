@@ -64,7 +64,18 @@
     const events=createEvents();
     const adapter=createAdapter(root,(code,detail)=>diagnostics.record(code,detail));
     const classificationCache=new Map(),electorateCache=new Map();
+    const STATE_CODES={alabama:'al',alaska:'ak',arizona:'az',arkansas:'ar',california:'ca',colorado:'co',connecticut:'ct',delaware:'de',florida:'fl',georgia:'ga',hawaii:'hi',idaho:'id',illinois:'il',indiana:'in',iowa:'ia',kansas:'ks',kentucky:'ky',louisiana:'la',maine:'me',maryland:'md',massachusetts:'ma',michigan:'mi',minnesota:'mn',mississippi:'ms',missouri:'mo',montana:'mt',nebraska:'ne',nevada:'nv',newhampshire:'nh',newjersey:'nj',newmexico:'nm',newyork:'ny',northcarolina:'nc',northdakota:'nd',ohio:'oh',oklahoma:'ok',oregon:'or',pennsylvania:'pa',rhodeisland:'ri',southcarolina:'sc',southdakota:'sd',tennessee:'tn',texas:'tx',utah:'ut',vermont:'vt',virginia:'va',washington:'wa',westvirginia:'wv',wisconsin:'wi',wyoming:'wy'};
     function fingerprint(value){try{return JSON.stringify(value);}catch(_){return null;}}
+    function stateCode(value){const normalized=String(value||'').toLowerCase().replace(/[^a-z]/g,'');return normalized.length===2?normalized:STATE_CODES[normalized]||null;}
+    function relevantElectorate(record){
+      const district=adapter.readDistrictContext(record);
+      if(district){const sourceHash=fingerprint(district);return{id:sourceHash?`native:${sourceHash}`:null,snapshot:district,label:district.label||district.name||'Native constituency'};}
+      const office=String(record.office||'').toLowerCase();
+      if(office.includes('president')){const national=electorates.find(item=>item.id==='nation');if(national)return{id:national.id,snapshot:national,label:national.label};}
+      const code=stateCode(record.state);
+      if(code){const state=electorates.find(item=>item.id===`state-${code}`);if(state)return{id:state.id,snapshot:state,label:`State electorate reference · ${state.label}`};}
+      return null;
+    }
     function cohortModel(snapshot){
       if(!snapshot||typeof snapshot!=='object')return inferCohorts(snapshot||{});
       const identity=String(snapshot.id??snapshot.label??snapshot.scope??'electorate');
@@ -106,13 +117,11 @@
     function isSafeMode(){return storage.load().preferences.safeMode!==false;}
     function setSafeMode(enabled){storage.update(current=>{current.preferences.safeMode=Boolean(enabled);return current;});return isSafeMode();}
     function politicianProfile(record){return{dimensions:record.ideology?.dimensions||{},observedDimensions:[...new Set((record.ideology?.evidence||[]).map(item=>item.dimension).filter(Boolean))],party:record.party,politicalStyle:record.politicalStyle};}
-    function sameContext(a,b){if(!a||!b)return false;try{return JSON.stringify(a)===JSON.stringify(b);}catch(_){return false;}}
     function openPolitician(record){
       recentViews.record(record.id);
-      const district=adapter.readDistrictContext(record);
-      const model=district?cohortModel(district):null;
+      const source=relevantElectorate(record),model=source?cohortModel(source.snapshot):null;
       const electorateAnalysis=model&&model.confidence>.2?analyzeCandidate(politicianProfile(record),record.politicalStyle,model):null;
-      shell.open(target=>renderPoliticianPanel(document,target,record,{back:openDashboard,toggleWatchlist,isWatched:id=>watchlists.has(id),toggleCompare,isCompareSelected:id=>compareSelection.includes(String(id)),electorateAnalysis,electorateCohorts:model?.cohorts,electorateLabel:district?.label||district?.name||'Native constituency'}));
+      shell.open(target=>renderPoliticianPanel(document,target,record,{back:openDashboard,toggleWatchlist,isWatched:id=>watchlists.has(id),toggleCompare,isCompareSelected:id=>compareSelection.includes(String(id)),electorateAnalysis,electorateCohorts:model?.cohorts,electorateLabel:source?.label||'Relevant electorate fit'}));
     }
     function openIdeologyExplorer(){refreshData();shell.open(target=>renderIdeologyExplorer(document,target,records,{}, {back:openDashboard,openPolitician,toggleWatchlist,electorates,inferCohorts:cohortModel,analyzeCandidate,renderElectoratePanel}));}
     function openElectorates(){refreshData();shell.open(target=>renderElectorateBrowser(document,target,electorates,{back:openDashboard,records,inferCohorts:cohortModel,analyzeCandidate,compareCandidates,renderElectoratePanel}));}
@@ -124,8 +133,8 @@
           const p=document.createElement('p');p.className='pm-muted';p.textContent='Select two politicians from Political Intelligence to compare them.';target.appendChild(p);
           const b=document.createElement('button');b.className='pm-button';b.type='button';b.textContent='Back to Political Intelligence';b.addEventListener('click',openDashboard);target.appendChild(b);return;
         }
-        const districtA=adapter.readDistrictContext(chosen[0]),districtB=adapter.readDistrictContext(chosen[1]);
-        const model=sameContext(districtA,districtB)?cohortModel(districtA):null;
+        const sourceA=relevantElectorate(chosen[0]),sourceB=relevantElectorate(chosen[1]);
+        const model=sourceA?.id&&sourceA.id===sourceB?.id?cohortModel(sourceA.snapshot):null;
         const coalitionComparison=model&&model.confidence>.2?compareCandidates(politicianProfile(chosen[0]),politicianProfile(chosen[1]),model):null;
         renderComparePanel(document,target,chosen[0],chosen[1],{back:openDashboard,coalitionComparison});
       });
