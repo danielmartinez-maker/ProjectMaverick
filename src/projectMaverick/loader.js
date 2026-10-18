@@ -35,9 +35,9 @@
     const {classifyPolitician}=loadModule('ideology/classifyPolitician');
     const {classifyPoliticalStyle}=loadModule('archetypes/classifyPoliticalStyle');
     const {inferCohorts}=loadModule('voters/cohortModel');
-    const {analyzeCandidate}=loadModule('voters/coalitionAnalysis');
+    const {analyzeCandidate,compareCandidates}=loadModule('voters/coalitionAnalysis');
     const {searchPoliticians}=loadModule('qol/search');
-    const {filterPoliticians}=loadModule('qol/filters');
+    const {filterPoliticians,sortPoliticians}=loadModule('qol/filters');
     const {createWatchlists}=loadModule('qol/watchlists');
     const {createRecentViews}=loadModule('qol/recentViews');
     const {createShell}=loadModule('ui/shell');
@@ -84,12 +84,17 @@
     function toggleCompare(record){const id=String(record?.id??record);const index=compareSelection.indexOf(id);if(index>=0)compareSelection.splice(index,1);else{if(compareSelection.length>=2)compareSelection.shift();compareSelection.push(id);}return compareIds();}
     function isSafeMode(){return storage.load().preferences.safeMode!==false;}
     function setSafeMode(enabled){storage.update(current=>{current.preferences.safeMode=Boolean(enabled);return current;});return isSafeMode();}
+    function politicianProfile(record){return{dimensions:record.ideology?.dimensions||{},observedDimensions:[...new Set((record.ideology?.evidence||[]).map(item=>item.dimension).filter(Boolean))],party:record.party,politicalStyle:record.politicalStyle};}
+    function sameContext(a,b){if(!a||!b)return false;try{return JSON.stringify(a)===JSON.stringify(b);}catch(_){return false;}}
     function openPolitician(record){
       recentViews.record(record.id);
-      shell.open(target=>renderPoliticianPanel(document,target,record,{back:openDashboard,toggleWatchlist,isWatched:id=>watchlists.has(id),toggleCompare,isCompareSelected:id=>compareSelection.includes(String(id))}));
+      const district=adapter.readDistrictContext(record);
+      const model=district?inferCohorts(district):null;
+      const electorateAnalysis=model&&model.confidence>.2?analyzeCandidate(politicianProfile(record),record.politicalStyle,model):null;
+      shell.open(target=>renderPoliticianPanel(document,target,record,{back:openDashboard,toggleWatchlist,isWatched:id=>watchlists.has(id),toggleCompare,isCompareSelected:id=>compareSelection.includes(String(id)),electorateAnalysis,electorateCohorts:model?.cohorts,electorateLabel:district?.label||district?.name||'Native constituency'}));
     }
     function openIdeologyExplorer(){refreshData();shell.open(target=>renderIdeologyExplorer(document,target,records,{}, {back:openDashboard,openPolitician,toggleWatchlist}));}
-    function openElectorates(){refreshData();shell.open(target=>renderElectorateBrowser(document,target,electorates,{back:openDashboard,records,inferCohorts,analyzeCandidate,renderElectoratePanel}));}
+    function openElectorates(){refreshData();shell.open(target=>renderElectorateBrowser(document,target,electorates,{back:openDashboard,records,inferCohorts,analyzeCandidate,compareCandidates,renderElectoratePanel}));}
     function openCompare(){
       refreshData();
       const chosen=compareSelection.map(id=>records.find(r=>String(r.id)===id)).filter(Boolean);
@@ -98,7 +103,10 @@
           const p=document.createElement('p');p.className='pm-muted';p.textContent='Select two politicians from Political Intelligence to compare them.';target.appendChild(p);
           const b=document.createElement('button');b.className='pm-button';b.type='button';b.textContent='Back to Political Intelligence';b.addEventListener('click',openDashboard);target.appendChild(b);return;
         }
-        renderComparePanel(document,target,chosen[0],chosen[1],{back:openDashboard});
+        const districtA=adapter.readDistrictContext(chosen[0]),districtB=adapter.readDistrictContext(chosen[1]);
+        const model=sameContext(districtA,districtB)?inferCohorts(districtA):null;
+        const coalitionComparison=model&&model.confidence>.2?compareCandidates(politicianProfile(chosen[0]),politicianProfile(chosen[1]),model):null;
+        renderComparePanel(document,target,chosen[0],chosen[1],{back:openDashboard,coalitionComparison});
       });
     }
     function openDiagnostics(){
@@ -115,7 +123,7 @@
     }
     function openDashboard(){
       refreshData();
-      shell.open(target=>renderDashboard(document,target,{records,searchPoliticians,filterPoliticians,watchlists,recentViews,openPolitician,openIdeologyExplorer,openElectorates,openCompare,openDiagnostics,toggleWatchlist,toggleCompare,compareIds}));
+      shell.open(target=>renderDashboard(document,target,{records,searchPoliticians,filterPoliticians,sortPoliticians,watchlists,recentViews,openPolitician,openIdeologyExplorer,openElectorates,openCompare,openDiagnostics,toggleWatchlist,toggleCompare,compareIds}));
     }
     if(!document.getElementById('pm-launcher')){
       const launcher=document.createElement('button');launcher.id='pm-launcher';launcher.className='pm-button';launcher.type='button';launcher.textContent='Maverick';launcher.addEventListener('click',openDashboard);document.body.appendChild(launcher);

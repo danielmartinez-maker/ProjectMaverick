@@ -92,6 +92,9 @@ function normalizeCandidateArray(candidate, index) {
     socialScore:cloneValue(candidate[CANDIDATE_INDEX.socialIdeology]),
     popularity:approval.overall,
     approval,
+    nameRecognition:cloneValue(candidate[CANDIDATE_INDEX.nameRecognition]),
+    incumbent:null,
+    electionStatus:null,
     experience:cloneValue(candidate[CANDIDATE_INDEX.politicalPoints]),
     issues,
     native:cloneValue({
@@ -124,8 +127,12 @@ function normalizeObjectPolitician(p, index) {
     socialScore: cloneValue(first(p, ['socialScore','socialIdeology'])),
     popularity: cloneValue(first(p, ['popularity','totalAppr','approvalRating'])) ?? approval.overall ?? null,
     approval,
+    nameRecognition:cloneValue(first(p,['nameRecognition','nameRec','recognition'])),
+    incumbent:first(p,['incumbent','isIncumbent'])==null?null:!!first(p,['incumbent','isIncumbent']),
+    electionStatus:text(first(p,['electionStatus','raceStatus']))||null,
     experience: cloneValue(first(p, ['experience','politicalExperience','yearsExperience','politicalPoints'])),
     issues: cloneValue(first(p, ['issues','issuePositions','positions','policyPositions'])) || {},
+    district:cloneValue(first(p,['district','districtData','electorate'])),
     native: cloneValue({ history: first(p, ['history','politicalHistory','jobHistory']), partyLoyalty: first(p, ['partyLoyalty']), jobs })
   };
 }
